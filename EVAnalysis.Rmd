@@ -1,0 +1,561 @@
+---
+title: "Data Analysis Case Study - European EV market analysis"
+output:
+  html_notebook:
+    df_print: paged
+---
+## Ask
+
+#### Introduction
+
+My client is an industry-leading energy infrastructure provider based in Europe. Following onto the energy crisis that Europe is facing (Popkostova, 2022), they are in the process of securing more funding from investors, and to invest in energy projects in the Europe to meet the ever-growing electricity demand.
+
+One of their teams that focuses on renewable energy projects is eager to discover insights from the EV market. They would like to know if EV market is impacting the electricity demand in the Europe and by what magnitude, so that data-driven decisions could be made based on conclusions drawn from this data analysis project. Once we produce actionable recommendations to them, they could then conduct feasibility study based on our conclusion and advise their board.
+
+Following an interview with my client, we have established these objectives as key tasks:
+
+1.	Identify historical trends of the European EV market.
+2.	Identify short-term investment opportunities based on historical and current demand.
+3.	Identify long-term investment opportunities based on projected future demands.
+
+We would then draw conclusions from the analysis steps above and advise stakeholders based on discovered insights to make actionable data-driven recommendations.
+
+
+## Prepare
+
+#### Source and credibility of the data
+
+The [datasets](https://www.iea.org/articles/global-ev-data-explorer) used are sourced from IEA (International Energy Agency), a Paris-based autonomous intergovernmental organisation that serves as a policy adviser on energy issues for 30 member countries. The datasets contain records of EV sales, publicly available EV chargers and EV electricity demand sorted by countries and regions between 2010-2020 (Global EV Data Explorer – Analysis - IEA, 2022). Considering that the EV market is still in its infancy as the first mass produced EV is only released in 1997 (The History of the Electric Car, 2022), we can assume that the dataset used would be relevant and up to date to reflect recent market trends.
+
+#### Licensing
+This project will not include the original dataset as downloadable file as to adhere to IEA's terms and conditions, which states *anything greater than 5 (five) numerical data points (but still an Insubstantial Amount) from the Material must not be made available in a separate downloadable format and must be presented either in graphical format or aggregated (in such a manner that the reader cannot reverse engineer or extract the original underlying numerical data).*
+
+This also means that the analysis process will only include the summary or head of a dataset, where appropriate.
+
+#### How is the data organized?
+
+The datasets used are three seperate csv files and their corresponding naming convention used to name dataframes:
+
+* IEA-EV-dataEV salesCarsHistorical.csv (EVsales)
+* IEA-EV-dataEV chargersHistorical.csv (EVchargers)
+* IEA-EV-dataElectricity demandCarsHistorical_MoMo.csv (EVdemand)
+
+We will load them into dataframes to examine how they are organized.
+```{r}
+library(dplyr, warn.conflicts = FALSE)
+options(dplyr.summarise.inform = FALSE)
+library(tidyverse, warn.conflicts = FALSE)
+
+EVsales <- read.csv(url("https://api.iea.org/evs/?parameter=EV%20sales&mode=Cars&category=Historical&csv=true"))
+EVchargers <- read.csv(url("https://api.iea.org/evs/?parameter=EV%20chargers&category=Historical&csv=true"))
+EVdemand <- read.csv(url("https://api.iea.org/evs/?parameter=Electricity%20demand&mode=Cars&category=Historical_MoMo&csv=true"))
+
+head(EVsales)
+head(EVchargers)
+head(EVdemand)
+```
+The EV sales dataframe is grouped by countries(denoted by region) and vehicle type (denoted by powertrain), and value representing EV sales annually.
+The EV chargers dataframe is grouped by countries(denoted by region) and charger types(denoted by powertrain), and value representing available public chargers in that specific year.
+The EV demand dataframe is grouped by countries(denoted by region), and their corresponding annual electricity consumption is categorized by vehicle type (denoted by powertrain).
+
+#### Potential problems with the data
+
+Upon the examination of data above, we recognize the potential problems below:
+
+* some columns in each dataset is redundant (i.e. not useful to analyze them)
+* Datasets could contain different time range (EV electricity demand dataset seems to start from 2015, instead of 2010)
+* some of the fields could be missing (i.e. contains no data)
+* The default datatype assigned by R could be inappropriate
+
+We will pay attention and attempt to overcome these problems in the next step - Process
+
+## Process
+
+#### Data cleaning and pre-processing
+
+First, let's explore which regions are included in our EV sales dataset. To do this, we use the unique() function on "region" and "year" variable to access only the unique values.
+```{r}
+unique(EVsales[c("region")])
+```
+```{r}
+unique(EVsales[c("year")])
+```
+Here we have 11 years of data to look at, from 2010 to 2020.
+
+Next, we take a look at some seemingly irrelevant columns. We could then drop these columns if they are indeed redundant and proves to be not useful for the purpose of our data analysis.
+```{r}
+unique(EVsales[c("category")])
+unique(EVsales[c("parameter")])
+unique(EVsales[c("mode")])
+unique(EVsales[c("unit")])
+```
+
+These 4 columns only contains singular categorical data which would not be useful for our analysis, hence we will drop these columns from our dataframes.
+```{r}
+EVsales_cleaned <- subset(EVsales, select = -c(category, parameter, mode, unit))
+glimpse(EVsales_cleaned)
+```
+Now our EVsales dataframe only contains 4 useful attributes: region, powertrain, year and value. We will continue with the next steps of data processing.
+
+Despite that the data is sourced from a credible organization and most likely to be cleaned already, we will still search for any potential null or erroneous value in order to make sure we are using clean and correct data.
+```{r}
+EVsales_cleaned <- drop_na(EVsales_cleaned)
+glimpse(EVsales_cleaned)
+```
+
+Here we notice that the value datatype is double. Since there can't be '0.297' or half of a car, we will convert the datatype on "value" column to integer to enforce data integrity.
+```{r}
+EVsales_cleaned <- transform(EVsales_cleaned, value = as.integer(value))
+```
+
+Since we only want to explore the EV market trends in Europe, we could exclude rest of regions outside the European continent. Here we create a vector of European countries from the "region" data we saw above, and then dropping rows which regions does not match.
+```{r}
+list_of_EU_countries <- c("Belgium", "Denmark", "Finland", "France", "Germany", "Greece", "Iceland", "Italy", "Netherlands", "Norway", "Other Europe", "Poland", "Portugal", "Spain", "Sweden", "Switzerland", "United Kingdom")
+EVsales_cleaned <- subset(EVsales_cleaned, region %in% list_of_EU_countries)
+```
+
+Here is a glimpse of our cleaned EVsales dataframe:
+```{r}
+head(EVsales_cleaned)
+```
+
+Next, we will apply the same data cleaning techniques to the other two datasets we have.
+```{r}
+unique(EVchargers[c("category")])
+unique(EVchargers[c("parameter")])
+unique(EVchargers[c("mode")])
+unique(EVchargers[c("unit")])
+unique(EVchargers[c("powertrain")])
+unique(EVchargers[c("year")])
+```
+
+We're keeping powertrain and dropping the other 4 since they contain no data or useless data.
+```{r}
+EVchargers_cleaned <- subset(EVchargers, select = -c(category, parameter, mode, unit))
+EVchargers_cleaned <- drop_na(EVchargers_cleaned)
+EVchargers_cleaned <- transform(EVchargers_cleaned, value = as.integer(value))
+EVchargers_cleaned <- subset(EVchargers_cleaned, region %in% list_of_EU_countries)
+head(arrange(EVchargers_cleaned, year))
+```
+
+Printing unique values in EVdemand dataframe.
+```{r}
+unique(EVdemand[c("region")])
+unique(EVdemand[c("category")])
+unique(EVdemand[c("parameter")])
+unique(EVdemand[c("mode")])
+unique(EVdemand[c("unit")])
+unique(EVdemand[c("powertrain")])
+unique(EVdemand[c("year")])
+```
+
+Here we can drop category, parameter, mode and unit attributes again, then dropping rows containing null values before only including Europe region data.
+```{r}
+EVdemand_cleaned <- subset(EVdemand, select = -c(category, parameter, mode, unit))
+EVdemand_cleaned <- drop_na(EVdemand_cleaned)
+EVdemand_cleaned <- subset(EVdemand_cleaned, region =="Europe")
+head(arrange(EVdemand_cleaned, year))
+```
+
+### Procedures of our data cleaning process:
+
+* All dataset were examined by looking at unique values of each variable.
+* Columns that are not useful to our analysis objective were dropped.
+* Observations with any empty values were dropped (if there were any).
+* Rows where region is not part of Europe were dropped.
+* Data types were amended where appropriate (i.e. EV sales should be a whole number and electricity demand could be a float.)
+
+Here is a summary of each dataframe before the procedures and after:
+
+**EVsales: 704 rows, 8 variables.**
+
+**EVsales_cleaned: 422 rows, 4 variables.**
+
+**EVchargers: 464 rows, 8 variables.**
+
+**EVchargers_cleaned: 284 rows, 4 variables.**
+
+**EVdemand: 56 rows, 8 variables.**
+
+**EVdemand_cleaned:  12 rows, 4 variables.**
+
+## Analyze
+
+import our libraries ggplot2, viridis and plotly for visualization.
+```{r}
+library(ggplot2, warn.conflicts = FALSE)
+library(viridis, warn.conflicts = FALSE)
+library(plotly, warn.conflicts = FALSE)
+```
+
+First, we produce a simple line plot of the total EV sales of European countries between 2010 and 2020.
+
+```{r}
+options(scipen=1000)
+plt_TotalEVsales <- data.frame(EVsales_cleaned %>% group_by(year) %>% summarize("TotalEVsales" = sum(value)))
+plt_TotalEVsales <- plt_TotalEVsales %>% ggplot(aes(x=year, y=TotalEVsales)) +
+  geom_line()+
+  labs(x = "Year", 
+       y = "Numbers of EV sold",
+       title = "EV sales of European Countries Combined (2010-2020)")+
+  theme_classic()+
+  scale_x_continuous(breaks = 2010:2020)
+ggplotly(plt_TotalEVsales, width=800)
+```
+#### Insight 1
+From the line plot, we can see that the Total EV sales in Europe has been consistently growing over the time period between 2010 and 2020, with accelerated growth especially during 2016 to 2020.
+Next, we look deeper into the data by plotting annual sales data sorted by region(countries).
+
+```{r}
+plt_EVsalesByRegion <- data.frame(EVsales_cleaned %>% group_by(region,year) %>% summarize(sum(value)))
+
+plt_EVsalesByRegion <- plt_EVsalesByRegion %>% ggplot(aes(x=year, y=sum.value., color =region)) +
+  geom_line()+
+  labs(x = "Year", 
+       y = "Numbers of EV sold",
+       title = "EV sales by European Countries (2010-2020)")+
+  theme_classic()+
+  scale_x_continuous(breaks = 2010:2020)
+ggplotly(plt_EVsalesByRegion, width=800)
+```
+#### Insight 2
+We can see that Germany, France and the United Kingdom are the leading top 3 countries in the sales of EV in Europe. Also, this group of 3 appears to have the highest rate of growths too, we will investigate this further with a different dataset later on.
+
+Next, we look at the sales different types of EVs in terms of powertrain.
+```{r}
+plt_EVsalesByPowertrain <- data.frame(EVsales_cleaned %>% group_by(powertrain) %>% summarize(sum(value)))
+plt_EVsalesByPowertrain <- plt_EVsalesByPowertrain %>% ggplot(aes(x="", y=sum.value., fill=powertrain)) +
+    geom_bar(width = 1, stat = "identity", color="white")+
+  labs(title = "Total EV sales by powertrain types, \nEurope Combined (2010-2020)")+
+  scale_fill_manual(values = c("slateblue1", "gold", "sienna3"))+
+  theme_void()
+plt_EVsalesByPowertrain <- plt_EVsalesByPowertrain + geom_text(aes(label = sprintf("%0.2f%%", round((sum.value. / sum(sum.value.)*100), digits = 2))),
+            position = position_stack(vjust = 0.5)) +
+  coord_polar(theta = "y")
+plt_EVsalesByPowertrain
+```
+#### Insight 3
+Out of 3 types of EVs included in the EV sales dataset, Battery Electric Vehicle(BEV) is the most popular choice accounted for 54.68% of the total sales. Plug-in Hybrid Electric Vehicles(PHEV) follows slightly behind with 45.25%.
+Finally, Fuel Cell Electric vehicle(FCEV) seems to be a niche choice for consumers as they only accounts for 0.07% of the total sales between 2010-2020.
+
+Next, we will look at public charger types in all of Europe.
+```{r}
+plt_EVchargersPct <- data.frame(EVchargers_cleaned %>% group_by(powertrain) %>% summarize(sum(value)))
+plt_EVchargersPct <- plt_EVchargersPct %>% ggplot(aes(x="", y=sum.value., fill=powertrain)) +
+    geom_bar(width = 1, stat = "identity", color="white")+
+  labs(title = "Charger types in percentage, Europe Combined (2020)")+
+  scale_fill_manual(values = c("slateblue1", "gold", "sienna3"))+
+  theme_void()
+plt_EVchargersPct <- plt_EVchargersPct + geom_text(aes(label = sprintf("%0.2f%%", round((sum.value. / sum(sum.value.)*100), digits = 2))),
+            position = position_stack(vjust = 0.5)) +
+  coord_polar(theta = "y")
+plt_EVchargersPct
+```
+#### Insight 4
+As of 2020, roughly only 1 out of 10 publicly available chargers in Europe is a fast charger. 
+
+Now, we plot the number of chargers vs. countries in 2020.
+
+```{r}
+plt_EVchargersByRegion <- ggplot(data = EVchargers_cleaned %>% filter(year=="2020"), aes(y=reorder(region, value), x=value, fill =powertrain)) +
+    geom_col()+
+  labs(x = "Numbers of Chargers", 
+       y = "Countries",
+       title = "Public available EV chargers by European Countries (2020)")+
+  scale_fill_manual(values = c("slateblue1", "gold"))
+ggplotly(plt_EVchargersByRegion, width=800)
+```
+#### Insight 5
+Countries such as Netherlands, Italy and Belgium has a small fast chargers to slow chargers ratio.
+
+
+Next, we explore how many public chargers are available per EV in different European countries.
+
+
+```{r}
+df1 <- EVchargers_cleaned %>% filter(year=="2020") %>% group_by(region) %>% summarize("EVchargers" = sum(value))
+df2 <- EVsales_cleaned %>% group_by(region) %>% summarize("EVsalescombined" = sum(value))
+df3 <- merge(df1, df2, by="region")
+df3$EVsPerCharger <- df3$EVsalescombined / df3$EVchargers
+head(df3)
+```
+
+visualzing the data, dashed line is the mean value of how many EVs are there per publicly available charger.
+
+```{r}
+pltEVvsChargers <- ggplot(df3, aes(y=reorder(region, EVsalescombined), x=EVsPerCharger, fill="EVsPerCharger")) +
+    geom_col()+
+  labs(x = "No. of EVs", 
+       y = "Countries ranked in order of No. of EV Sales",
+       title = "Numbers of EVs Per Charger (Publicly Available Slow + Fast)")+
+  scale_fill_manual(values = c("slateblue1"))+
+  geom_vline(xintercept = mean(df3$EVsPerCharger), color="black", linetype = "dashed")
+ggplotly(pltEVvsChargers, width=800) %>% layout(showlegend = FALSE)
+```
+#### Insight 6
+Countries such as Germany, Norway and Sweden has higher than average of EV per charger ratio (One charger has serves more EVs).
+
+
+## Simple linear regression on EV sales and EV electricity demand
+
+To forecast future EV electricity demand, we must first identify the relationship between our predictor variables(BEV and PHEV sales) and response variable (EV electricity demand).
+
+First, we perform a simple linear regression on EV sales as our predictor variable and EV electricity demand as our response variable.
+We will manipulate the EV sales data and turn it into cumulative sum, since the nature of EV electricity demand data is cumulative (Each datapoint of EV demand is cumulative to all previous EV sold, as we assume EVs sold in the past also contribute towards the demand)
+
+```{r}
+unique(EVdemand_cleaned$year)
+unique(EVsales_cleaned$year)
+```
+We can see that the EV electricity demand dataset only have Europe region data available between 2015 and 2020, we will use this time period for our regression analyses later on.
+
+```{r}
+library(forecast, warn.conflicts = FALSE)
+library(MASS)
+df <- inner_join(EVdemand_cleaned %>% group_by(year) %>% summarize("EVdemand" = sum(value)), EVsales_cleaned %>% group_by(year) %>% summarize("EVsales" = sum(value)))
+df$cumsumEVsales <- (cumsum(df$EVsales))
+df
+```
+
+Here we first visualize the data via a scatter plot:
+
+```{r}
+plt_lm1 <- ggplot(df,aes(x=cumsumEVsales,y=EVdemand))+
+         geom_point()+
+         theme_classic()+
+  geom_smooth(formula = y ~ x, method=lm,se=FALSE,fullrange=TRUE)
+ggplotly(plt_lm1)
+```
+
+The plot shows that the linear model fits almost perfectly, we will examine this with a correlation test.
+
+```{r}
+cor.test(df$cumsumEVsales, df$EVdemand)
+```
+#### Insight 7
+The p value for this model is very low (<0.05) and hence we could assume high statistical significance, rejecting the null hypothesis.
+The correlation coefficient of 0.9994805 also suggest a high positive correlation between the cumulative sales of EV and the EV electricity demand.
+
+Since our dataset are comprised of categorical data such as region and powertrain, we need to use multiple linear regression in order to create a more accurate model and in turn produce more confident forecast results.Hence we will perform multiple linear regression on BEV vs. BEV electricity demands and PHEV vs. PHEV electricity demand.
+
+## Multiple linear regression
+
+First, we construct a dataframe from the cumulative sum of annual BEV and PHEV sales in European countries and their corresponding annual electricity demand. we will also calculate the electricity demand per vehicle for EV and PHEV and convert the unit into Kilowatt Hour (KWh) from the original GWh from the dataset.
+FCEV sales data is excluded from the multiple regression analysis as EVdemand dataset does not contain relevant data.
+
+
+```{r}
+df4 <- EVsales_cleaned %>% group_by(year, powertrain) %>% summarise("value" = sum(value)) %>% pivot_wider(names_from = "powertrain", values_from = "value") %>% rename(sales_BEV = BEV, sales_FCEV = FCEV, sales_PHEV = PHEV)
+df4$cumsumBEVsales <- (cumsum(df4$sales_BEV))
+df4$cumsumPHEVsales <- (cumsum(df4$sales_PHEV))
+df4 <- subset(df4, select = -c(sales_BEV, sales_PHEV, sales_FCEV))
+df7 <- EVdemand_cleaned %>% group_by(year, powertrain) %>% summarise("value" = sum(value)) %>% pivot_wider(names_from = "powertrain", values_from = "value") %>% rename(EVdemand_BEV = BEV, EVdemand_PHEV = PHEV)
+df7$EVdemand_Total <- df7$EVdemand_BEV + df7$EVdemand_PHEV
+df6 <- merge(df4, df7, by="year")
+df6$EDperBEV <- (df6$EVdemand_BEV / df6$cumsumBEVsales) * 1e6
+df6$EDperPHEV <- (df6$EVdemand_PHEV / df6$cumsumPHEVsales) * 1e6
+df6
+```
+
+Although we know that EV sales and combined Electricity demand is positively correlated, we still want to find out how strong the correlation is for each type of the EV based on powertrain. We can achieve that by produce scatter plots for both BEV and PHEV to visualize their linear relationship:
+
+```{r}
+spBEV <- plot_ly(x = df6$cumsumBEVsales, y = df6$EVdemand_BEV, type = 'scatter', mode = 'markers', name = 'BEV',
+                marker = list(line = list(width = 3)), width=800) %>%
+  layout(plot_bgcolor='#e5ecf6', 
+         xaxis = list( 
+           zerolinecolor = '#ffff', 
+           zerolinewidth = 2, 
+           gridcolor = 'ffff'), 
+         yaxis = list( 
+           zerolinecolor = '#ffff', 
+           zerolinewidth = 2, 
+           gridcolor = 'ffff'))
+
+spPHEV <- plot_ly(x = df6$cumsumPHEVsales, y = df6$EVdemand_PHEV, type = 'scatter', mode = 'markers', name = 'PHEV',
+                marker = list(line = list(width = 3)), width=800) %>%
+  layout(plot_bgcolor='#e5ecf6', 
+         xaxis = list( 
+           zerolinecolor = '#ffff', 
+           zerolinewidth = 2, 
+           gridcolor = 'ffff'), 
+         yaxis = list( 
+           zerolinecolor = '#ffff', 
+           zerolinewidth = 2, 
+           gridcolor = 'ffff'))
+
+sp2 <- subplot(spBEV, spPHEV, margin = 0.07) %>% 
+  layout(title = 'EV sales vs EV electricity Demand (2015-2020, Europe)')
+sp2
+```
+
+```{r}
+cor(df6$cumsumBEVsales, df6$EVdemand_BEV)
+cor(df6$cumsumPHEVsales, df6$EVdemand_PHEV)
+```
+Correlation test shows that both relationship are almost perfectly positively correlated. 
+
+Since we also calculated the electricity demand per vehicle for EV and PHEV, we can then further analyze and visualize by producing a boxplot based on these data.
+
+```{r}
+bpEDperBEV <- plot_ly(y = df6$EDperBEV, type = "box", name = 'BEV Electricity Demand',  width=800)
+bpEDperPHEV <- plot_ly(y = df6$EDperPHEV, type = "box", name = 'PHEV Electricity Demand',  width=800)
+bp1 <- subplot(bpEDperBEV, bpEDperPHEV, margin = 0.07) %>% 
+  layout(title = 'Average Annual Electricity Demand per EV (KWh), 2015-2020')
+bp1
+```
+#### Insight 8
+The Average annual electricity demand per BEV has a higher range than the demand of PHEV. The mean of BEV electricity demand in terms of kilowatt hour is also higher than PHEV's, which is to be expected since PHEV usually have a smaller capacity battery than most BEV.
+There is also an outlier in PHEV electricity demand that is significantly below its usual value.
+The interquartile range of BEV electricity demand is larger than its PHEV counterpart.
+
+Next, we construct the multiple regression model.
+
+```{r}
+model <- lm(EVdemand_Total ~ cumsumBEVsales + cumsumPHEVsales, data = df6)
+summary(model)
+```
+#### Insight 9
+
+The p value here is highly significant which means that at least one of the predictor variables is significantly related to total EV electricity demand.
+The adjusted R squared value of 0.9987 means that 99.87% of the variance could be explained by cumulative EV sales.
+The Residual standard error tells us that the model predicts the electricity demand of EVs with an average error of about 86.19 GWh.
+The estimated regression line equation is roughly: EVdemand_Total = -180.54 + 0.00154 * cumsumBEVsales + 0.00320 * cumsumPHEVsales
+
+
+
+## Time series analysis using ARIMA modelling
+
+As we have a model ready to forecast EV electricity demand, we also need forecast data for EV sales to fit to the model as new data.
+First, we manipulate the data into a new dataframe. We want our EV sales data to be pivoted wide in order to run this through a loop.
+```{r}
+df8 <- EVsales_cleaned %>% filter(powertrain !="FCEV") %>% group_by(year, powertrain, region) %>% summarise("value" = sum(value)) %>% pivot_wider(names_from = "region", values_from = "value", values_fill = 0)
+df8 <- df8 %>% pivot_longer('Denmark':'Greece', names_to = "region", values_to = "value")
+df8$powertrainregion <- paste(df8$powertrain, df8$region)
+df8 <- df8 %>% ungroup()
+df8 <- subset(df8, select = -c(region, powertrain))
+df8 <- df8 %>% pivot_wider(names_from = "powertrainregion", values_from = "value")
+head(df8)
+```
+
+The data is still in annualized sales data, we need cumulative sum of the sales data in order to perform auto.arima function.
+Here we loop through the dataframe to calculate cumulative sum.
+
+```{r}
+df9 <- as.data.frame(df8$year)
+names(df9)[1] <- 'year'
+for(i in 2:ncol(df8)){
+  df9[i] <- cumsum(df8[ , c(i)])
+}
+df9 <- df9 %>% rename_all(function(x) gsub(" ", "_", x))
+head(df9)
+```
+
+Now we have our data ready, it is time to loop through it once more with arima and forecast functions.
+
+```{r}
+EVsalesProjection <- data.frame(matrix(0, nrow = 10, ncol = 35))
+colnames(EVsalesProjection) <- colnames(df9)
+EVsalesProjection$year <- c(2021:2030)
+for(i in 2:ncol(df9)){
+  EVsalesProjection[i] <- forecast(auto.arima(df9[i]))$mean
+}
+EVsalesProjection
+```
+
+Now that we have our projected sales data, we will run them through yet another loop to fit new data to our regression model.
+
+```{r}
+fit <- lm(EVdemand_Total ~ cumsumBEVsales + cumsumPHEVsales, data = df6)
+fcastdf <- data.frame(matrix(0, nrow = 10, ncol = 18))
+colnames(fcastdf) <- colnames(EVsalesProjection)[1:18]
+names(fcastdf) <- substring(names(fcastdf), 5)
+fcastdf[1] <- 2021:2030
+fcastdf <- rename(fcastdf, year = "")
+
+for(i in 2:18){
+tempdf <- data.frame(matrix(0, nrow = 10, ncol = 2))
+tempdf <- subset(EVsalesProjection, select = c(i,i+17))
+tempdf <- tempdf %>% rename(cumsumBEVsales = 1, cumsumPHEVsales = 2)
+fcastdf[i] <- (forecast(fit, newdata=tempdf))$mean
+}
+head(fcastdf)
+```
+
+Here is a simple visualization in R, we will also export and visualize the forecast dataset in Tableau.
+
+```{r}
+plt_fcastEVdemand <- data.frame(fcastdf %>% group_by(year) %>% pivot_longer(2:18, names_to = "region", values_to = "value") %>% group_by(year,region) %>% summarize(electricity_demand = sum(value)))
+plt_fcastEVdemand <- plt_fcastEVdemand %>% ggplot(aes(x=year, y=electricity_demand, color=region)) +
+  geom_line()+
+  labs(x = "Year", 
+       y = "Numbers of EV sold",
+       title = "EV electricity demand forecast in GWh (2021-2030)")+
+  theme_classic()+
+  scale_x_continuous(breaks = 2021:2030)
+ggplotly(plt_fcastEVdemand, width=800)
+```
+#### Insight 10
+Based on our forecast model, Germany, France and the United Kingdom are the top 3 highest country of EV electricity demand by 2030.
+
+We notice that Greece, Iceland and Poland's predicted data contains a lot of negative value. The reason could be that value of sales of EV in these countries are at the lowest end of our dataset and could be considered outlier. Since our model is built upon the aggregated electricity demand of the whole Europe, the accuracy of predictions would be low. Hence, they will be excluded from the visualization since negative values of electricity demand does not make sense.
+We will also exclude "Other_Europe" from the visualization since the publisher of the data did not specify which regions it covered.
+
+```{r}
+fcastdf_final <- subset(fcastdf, select = -c(Greece, Iceland, Poland, Other_Europe))
+fcastdf_final <- fcastdf_final %>% pivot_longer(2:14, names_to = "region", values_to = "value")
+head(fcastdf_final)
+```
+
+Export the dataframe as .csv file for visualization in Tableau:
+
+```{r}
+write_csv(fcastdf_final, "EVElectricityDemandProjected2021_2030.csv")
+```
+
+
+![This is the Tableau visualization of the projected EV electricity demand dataset. Available filters includes a country filter and slider year filter. Value measure is in Gigawatt hour. Warmer colour suggests high demand and colder colour suggests low demand.](tableauviz2.png)
+
+
+
+## Share
+
+This is the detailed document in R notebook, with every procedure and code documented and interactive Plotly visualization.
+The Google Slides version (no codes, only visualization, insights and recommendation) is available [here.](www.google.com)
+Interactive Tableau Viz worksheet is available [here.](https://public.tableau.com/app/profile/ruipeng.yu/viz/EVElectricityDemandForecastinGWh2021-2030PartsofEurope/Sheet1)
+
+## Act
+
+#### Key findings
+
+* European EV market has experienced a consistent growth according to available data time frame (2010-2020).
+* From 2016 onwards, the total sales of EVs has seen accelerated growth year on year.
+* Germany, France and the UK seems to leads the EV sales figure and growth factor in Europe.
+* Battery Electric Vehicle (BEV) dominates the market with 54.7% of the total EV sales, with Plug-in Hybrid Electric Vehicle (PHEV) behind with 45.3%.
+* Fuel Cell Electric vehicle(FCEV) seems to be a niche choice for consumers as they only accounts for 0.07% of the total sales.
+* As of 2020, fast charger seems to be lacking as only 1 out of 10 publicly available chargers in Europe is a fast charger.
+* Public chargers in countries such as Netherlands, Italy and Belgium are mostly slow chargers, while Germany, Norway and Sweden has higher than average of EV per charger ratio.
+* On average, each BEV creates more electricity demand than PHEV.
+* According to our model, Germany, France and the UK will be the top 3 European countries of highest EV electricity demand by 2030.
+
+
+#### Recommendations
+
+1. Germany, France and the UK are the prominent target for energy investments as they are the leaders in EV market growth in Europe.
+2. Battery Electric Vehicle (BEV) and Plug-in Hybrid Electric Vehicle (PHEV) dominates the market and Fuel Cell Electric vehicle(FCEV) remains to be niche and irrelevant as of 2020. Hence, investment projects in charging solutions should only consider EV charging instead of hydrogen or other fuel types.
+3. Fast chargers are rare and they are a crucial to enable long distance driving (Funke, Sprei, Gnann and Plötz, 2019). Consider invest in fast charging solution projects in these countries where they need the most: Netherlands, Italy and Belgium.
+4. Some countries lacks public charging all together: Germany, Norway and Sweden, therefore invest in any public charging project would suffice.
+5. Germany, France and the UK are the top 3 countries with highest projected EV electricity demand by 2030, therefore long term infrastructure projects in these regions could be considered.
+
+#### Reference
+
+IEA. 2022. Global EV Data Explorer – Analysis - IEA. [online] Available at: <https://www.iea.org/articles/global-ev-data-explorer> [Accessed 6 January 2022]. All rights reserved.
+
+Energy.gov. 2022. The History of the Electric Car. [online] Available at: <https://www.energy.gov/articles/history-electric-car> [Accessed 6 January 2022].
+
+Popkostova, Y., 2022. EUROPE’S ENERGY CRISIS CONUNDRUM. [online] Iss.europa.eu. Available at: <https://www.iss.europa.eu/sites/default/files/EUISSFiles/Brief_2_Energy%20Crisis_web.pdf> [Accessed 2 March 2022].
+
+Funke, S., Sprei, F., Gnann, T. and Plötz, P., 2019. How much charging infrastructure do electric vehicles need? A review of the evidence and international comparison. Transportation Research Part D: Transport and Environment, 77, pp.224-242.
+
+
+
