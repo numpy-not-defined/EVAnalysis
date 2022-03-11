@@ -1,5 +1,6 @@
 ---
 title: "Data Analysis Case Study - European EV market analysis"
+Author: "Ruipeng Yu"
 output:
   html_notebook:
     df_print: paged
