@@ -3,14 +3,22 @@ title: "Data Analysis Case Study - European EV market analysis"
 output:
   html_notebook:
     df_print: paged
+    theme: united
+    toc: yes
 ---
+
+
+## Introduction
+
+### Scenario
+
+My client is an industry-leading energy infrastructure provider based in Europe. Following onto the energy crisis that Europe is facing (Popkostova, 2022), they are in the process of securing more funding from investors, and to invest in energy projects in Europe to meet the ever-growing electricity demand.
+
+Their renewable energy project team is eager to discover insights from the EV market. They would like to know if EV market is impacting the electricity demand in Europe and by what magnitude, so that data-driven decisions could be made based on conclusions drawn from this data analysis project. Once we produce actionable recommendations to them, they could then conduct feasibility study based on our conclusion and advise their board and stakeholders.
+
 ## Ask
 
-#### Introduction
-
-My client is an industry-leading energy infrastructure provider based in Europe. Following onto the energy crisis that Europe is facing (Popkostova, 2022), they are in the process of securing more funding from investors, and to invest in energy projects in the Europe to meet the ever-growing electricity demand.
-
-One of their teams that focuses on renewable energy projects is eager to discover insights from the EV market. They would like to know if EV market is impacting the electricity demand in the Europe and by what magnitude, so that data-driven decisions could be made based on conclusions drawn from this data analysis project. Once we produce actionable recommendations to them, they could then conduct feasibility study based on our conclusion and advise their board.
+### Define metrics from business objectives
 
 Following an interview with my client, we have established these objectives as key tasks:
 
@@ -18,29 +26,48 @@ Following an interview with my client, we have established these objectives as k
 2.	Identify short-term investment opportunities based on historical and current demand.
 3.	Identify long-term investment opportunities based on projected future demands.
 
-We would then draw conclusions from the analysis steps above and advise stakeholders based on discovered insights to make actionable data-driven recommendations.
+To accomplish these objectives, we would be required to procure relevant and up to date data sources that are related to the EV market in Europe, process and analyze them in order to draw conclusions and be able to make actionable data-driven recommendations. We need to quantify the demand, trends and to visualize these in turn to help our stakeholders to understand the insights discovered from our analysis.
+
+### Identify key stakeholders
+
+The stakeholders of this project would include:
+
+* Project manager of the renewable energy project team
+* Director of strategic investment in Energy and The Head of EU projects
+* Board of directors
 
 
 ## Prepare
 
-#### Source and credibility of the data
+### Source and credibility of the data
 
 The [datasets](https://www.iea.org/articles/global-ev-data-explorer) used are sourced from IEA (International Energy Agency), a Paris-based autonomous intergovernmental organisation that serves as a policy adviser on energy issues for 30 member countries. The datasets contain records of EV sales, publicly available EV chargers and EV electricity demand sorted by countries and regions between 2010-2020 (Global EV Data Explorer – Analysis - IEA, 2022). Considering that the EV market is still in its infancy as the first mass produced EV is only released in 1997 (The History of the Electric Car, 2022), we can assume that the dataset used would be relevant and up to date to reflect recent market trends.
 
-#### Licensing
+### Licensing
 This project will not include the original dataset as downloadable file as to adhere to IEA's terms and conditions, which states *anything greater than 5 (five) numerical data points (but still an Insubstantial Amount) from the Material must not be made available in a separate downloadable format and must be presented either in graphical format or aggregated (in such a manner that the reader cannot reverse engineer or extract the original underlying numerical data).*
 
 This also means that the analysis process will only include the summary or head of a dataset, where appropriate.
 
-#### How is the data organized?
+### How is the data organized?
 
 The datasets used are three seperate csv files and their corresponding naming convention used to name dataframes:
 
 * IEA-EV-dataEV salesCarsHistorical.csv (EVsales)
+
+This dataset contains the sales data of Electric Vehicles from 2010 to 2020 in different countries and regions. Key information includes: Types of EV.
+
 * IEA-EV-dataEV chargersHistorical.csv (EVchargers)
+
+This dataset contains the publicly available chargers of Electric Vehicles from 2010 to 2020 in different countries and regions. Key information includes: Types of chargers.
+
 * IEA-EV-dataElectricity demandCarsHistorical_MoMo.csv (EVdemand)
 
+This dataset contains the electricity demand of Electric Vehicles from 2015 to 2020. Key information includes: Electricity demand based on the type of EV.
+
+
 We will load them into dataframes to examine how they are organized.
+
+
 ```{r}
 library(dplyr, warn.conflicts = FALSE)
 options(dplyr.summarise.inform = FALSE)
@@ -54,24 +81,22 @@ head(EVsales)
 head(EVchargers)
 head(EVdemand)
 ```
-The EV sales dataframe is grouped by countries(denoted by region) and vehicle type (denoted by powertrain), and value representing EV sales annually.
-The EV chargers dataframe is grouped by countries(denoted by region) and charger types(denoted by powertrain), and value representing available public chargers in that specific year.
-The EV demand dataframe is grouped by countries(denoted by region), and their corresponding annual electricity consumption is categorized by vehicle type (denoted by powertrain).
 
-#### Potential problems with the data
+
+### Potential problems with the data
 
 Upon the examination of data above, we recognize the potential problems below:
 
 * some columns in each dataset is redundant (i.e. not useful to analyze them)
 * Datasets could contain different time range (EV electricity demand dataset seems to start from 2015, instead of 2010)
 * some of the fields could be missing (i.e. contains no data)
-* The default datatype assigned by R could be inappropriate
+* The default datatype assigned by R could be inappropriate for purpose of analysis
 
 We will pay attention and attempt to overcome these problems in the next step - Process
 
 ## Process
 
-#### Data cleaning and pre-processing
+### Data cleaning and pre-processing
 
 First, let's explore which regions are included in our EV sales dataset. To do this, we use the unique() function on "region" and "year" variable to access only the unique values.
 ```{r}
@@ -157,7 +182,7 @@ EVdemand_cleaned <- subset(EVdemand_cleaned, region =="Europe")
 head(arrange(EVdemand_cleaned, year))
 ```
 
-### Procedures of our data cleaning process:
+### Procedures of data cleaning and processing
 
 * All dataset were examined by looking at unique values of each variable.
 * Columns that are not useful to our analysis objective were dropped.
@@ -202,7 +227,7 @@ plt_TotalEVsales <- plt_TotalEVsales %>% ggplot(aes(x=year, y=TotalEVsales)) +
   scale_x_continuous(breaks = 2010:2020)
 ggplotly(plt_TotalEVsales, width=800)
 ```
-#### Insight 1
+### Insight 1
 From the line plot, we can see that the Total EV sales in Europe has been consistently growing over the time period between 2010 and 2020, with accelerated growth especially during 2016 to 2020.
 Next, we look deeper into the data by plotting annual sales data sorted by region(countries).
 
@@ -218,7 +243,7 @@ plt_EVsalesByRegion <- plt_EVsalesByRegion %>% ggplot(aes(x=year, y=sum.value., 
   scale_x_continuous(breaks = 2010:2020)
 ggplotly(plt_EVsalesByRegion, width=800)
 ```
-#### Insight 2
+### Insight 2
 We can see that Germany, France and the United Kingdom are the leading top 3 countries in the sales of EV in Europe. Also, this group of 3 appears to have the highest rate of growths too, we will investigate this further with a different dataset later on.
 
 Next, we look at the sales different types of EVs in terms of powertrain.
@@ -234,7 +259,7 @@ plt_EVsalesByPowertrain <- plt_EVsalesByPowertrain + geom_text(aes(label = sprin
   coord_polar(theta = "y")
 plt_EVsalesByPowertrain
 ```
-#### Insight 3
+### Insight 3
 Out of 3 types of EVs included in the EV sales dataset, Battery Electric Vehicle(BEV) is the most popular choice accounted for 54.68% of the total sales. Plug-in Hybrid Electric Vehicles(PHEV) follows slightly behind with 45.25%.
 Finally, Fuel Cell Electric vehicle(FCEV) seems to be a niche choice for consumers as they only accounts for 0.07% of the total sales between 2010-2020.
 
@@ -251,7 +276,7 @@ plt_EVchargersPct <- plt_EVchargersPct + geom_text(aes(label = sprintf("%0.2f%%"
   coord_polar(theta = "y")
 plt_EVchargersPct
 ```
-#### Insight 4
+### Insight 4
 As of 2020, roughly only 1 out of 10 publicly available chargers in Europe is a fast charger. 
 
 Now, we plot the number of chargers vs. countries in 2020.
@@ -265,7 +290,7 @@ plt_EVchargersByRegion <- ggplot(data = EVchargers_cleaned %>% filter(year=="202
   scale_fill_manual(values = c("slateblue1", "gold"))
 ggplotly(plt_EVchargersByRegion, width=800)
 ```
-#### Insight 5
+### Insight 5
 Countries such as Netherlands, Italy and Belgium has a small fast chargers to slow chargers ratio.
 
 
@@ -292,7 +317,7 @@ pltEVvsChargers <- ggplot(df3, aes(y=reorder(region, EVsalescombined), x=EVsPerC
   geom_vline(xintercept = mean(df3$EVsPerCharger), color="black", linetype = "dashed")
 ggplotly(pltEVvsChargers, width=800) %>% layout(showlegend = FALSE)
 ```
-#### Insight 6
+### Insight 6
 Countries such as Germany, Norway and Sweden has higher than average of EV per charger ratio (One charger has serves more EVs).
 
 
@@ -332,7 +357,7 @@ The plot shows that the linear model fits almost perfectly, we will examine this
 ```{r}
 cor.test(df$cumsumEVsales, df$EVdemand)
 ```
-#### Insight 7
+### Insight 7
 The p value for this model is very low (<0.05) and hence we could assume high statistical significance, rejecting the null hypothesis.
 The correlation coefficient of 0.9994805 also suggest a high positive correlation between the cumulative sales of EV and the EV electricity demand.
 
@@ -404,7 +429,7 @@ bp1 <- subplot(bpEDperBEV, bpEDperPHEV, margin = 0.07) %>%
   layout(title = 'Average Annual Electricity Demand per EV (KWh), 2015-2020')
 bp1
 ```
-#### Insight 8
+### Insight 8
 The Average annual electricity demand per BEV has a higher range than the demand of PHEV. The mean of BEV electricity demand in terms of kilowatt hour is also higher than PHEV's, which is to be expected since PHEV usually have a smaller capacity battery than most BEV.
 There is also an outlier in PHEV electricity demand that is significantly below its usual value.
 The interquartile range of BEV electricity demand is larger than its PHEV counterpart.
@@ -415,7 +440,7 @@ Next, we construct the multiple regression model.
 model <- lm(EVdemand_Total ~ cumsumBEVsales + cumsumPHEVsales, data = df6)
 summary(model)
 ```
-#### Insight 9
+### Insight 9
 
 The p value here is highly significant which means that at least one of the predictor variables is significantly related to total EV electricity demand.
 The adjusted R squared value of 0.9987 means that 99.87% of the variance could be explained by cumulative EV sales.
@@ -495,7 +520,7 @@ plt_fcastEVdemand <- plt_fcastEVdemand %>% ggplot(aes(x=year, y=electricity_dema
   scale_x_continuous(breaks = 2021:2030)
 ggplotly(plt_fcastEVdemand, width=800)
 ```
-#### Insight 10
+### Insight 10
 Based on our forecast model, Germany, France and the United Kingdom are the top 3 highest country of EV electricity demand by 2030.
 
 We notice that Greece, Iceland and Poland's predicted data contains a lot of negative value. The reason could be that value of sales of EV in these countries are at the lowest end of our dataset and could be considered outlier. Since our model is built upon the aggregated electricity demand of the whole Europe, the accuracy of predictions would be low. Hence, they will be excluded from the visualization since negative values of electricity demand does not make sense.
@@ -526,7 +551,7 @@ Interactive Tableau Viz worksheet is available [here.](https://public.tableau.co
 
 ## Act
 
-#### Key findings
+### Key findings
 
 * European EV market has experienced a consistent growth according to available data time frame (2010-2020).
 * From 2016 onwards, the total sales of EVs has seen accelerated growth year on year.
@@ -539,7 +564,7 @@ Interactive Tableau Viz worksheet is available [here.](https://public.tableau.co
 * According to our model, Germany, France and the UK will be the top 3 European countries of highest EV electricity demand by 2030.
 
 
-#### Recommendations
+### Recommendations
 
 1. Germany, France and the UK are the prominent target for energy investments as they are the leaders in EV market growth in Europe.
 2. Battery Electric Vehicle (BEV) and Plug-in Hybrid Electric Vehicle (PHEV) dominates the market and Fuel Cell Electric vehicle(FCEV) remains to be niche and irrelevant as of 2020. Hence, investment projects in charging solutions should only consider EV charging instead of hydrogen or other fuel types.
@@ -547,7 +572,18 @@ Interactive Tableau Viz worksheet is available [here.](https://public.tableau.co
 4. Some countries lacks public charging all together: Germany, Norway and Sweden, therefore invest in any public charging project would suffice.
 5. Germany, France and the UK are the top 3 countries with highest projected EV electricity demand by 2030, therefore long term infrastructure projects in these regions could be considered.
 
-#### Reference
+### Limitations of the data and the analysis
+
+Based on the quality contraints of the datasets used, there are a number of limitations to be addressed:
+
+* Some regional data is missing from one or more datasets, making cross reference difficult as we had to exclude the missing region from the analysis.
+* The data point frequency in the datasets (annual) could compromise the accuracy of our analysis, especially to the ARIMA model.
+* Electricity demand dataset does not have data drilled down to each individual country. Instead, we modelled our multiple regression based on the figures of whole european EV electricity demand. This means that countries with extremely small/large values of EV sales would be prone to overfitting issues in the results of our EV electricity demand forecast.
+* There are no available data for private chargers, which could be an important factor in the supply and demand of charging stations. This analysis presumed public chargers accounts for most of the charging demand of EVs.
+
+
+
+## Reference
 
 IEA. 2022. Global EV Data Explorer – Analysis - IEA. [online] Available at: <https://www.iea.org/articles/global-ev-data-explorer> [Accessed 6 January 2022]. All rights reserved.
 
