@@ -13,9 +13,10 @@ output:
 
 ### Scenario
 
-My client is an industry-leading energy infrastructure provider based in Europe. Following onto the energy crisis that Europe is facing (Popkostova, 2022), they are in the process of securing more funding from investors, and to invest in energy projects in Europe to meet the ever-growing electricity demand.
+My client is an industry-leading energy infrastructure provider based in Europe. Following the energy crisis that Europe faces (Popkostova, 2022), they are securing more funding from investors and investing in energy projects in Europe to meet the ever-growing electricity demand.
 
-Their renewable energy project team is eager to discover insights from the EV market. They would like to know if EV market is impacting the electricity demand in Europe and by what magnitude, so that data-driven decisions could be made based on conclusions drawn from this data analysis project. Once we produce actionable recommendations to them, they could then conduct feasibility study based on our conclusion and advise their board and stakeholders.
+Their renewable energy project team is eager to discover insights from the EV market. They would like to know if the EV market is impacting the electricity demand in Europe and by what magnitude, so that data-driven decisions could be made based on conclusions drawn from this data analysis project. Once we produce actionable recommendations, they could conduct a feasibility study based on our conclusion and advise their board and stakeholders.
+
 
 ## Ask
 
